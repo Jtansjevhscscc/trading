@@ -1,4 +1,3 @@
-# dashboard_trading.py
 import streamlit as st
 import yfinance as yf
 import numpy as np
@@ -43,7 +42,7 @@ def compute_indicators(df):
 # ---------- Load model & scalers ----------
 @st.cache_resource
 def load_model_scalers():
-    model = load_model("lstm_delta_model.keras")
+    model = load_model("lstm_delta_model_corrected.keras")
     with open("scaler_X.pkl", "rb") as f:
         scaler_X = pickle.load(f)
     with open("scaler_y.pkl", "rb") as f:
