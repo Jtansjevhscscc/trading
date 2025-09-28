@@ -1,26 +1,26 @@
-# dashboard_trading.py
-import streamlit as st
 import yfinance as yf
 import numpy as np
 import pandas as pd
 import pickle
 from tensorflow.keras.models import load_model
+import streamlit as st
 import plotly.graph_objects as go
+from datetime import datetime, timedelta, timezone
+from jinja2 import Environment, FileSystemLoader
+import time
+import json
+import os
 
-# ----------------- 1. Interface -----------------
-st.set_page_config(page_title="Trading Dashboard", layout="wide")
-st.title("📈 Dashboard Trading LSTM Delta")
+st.set_page_config("Trading Dashboard", layout="wide")
 
-# ----------------- 2. Paramètres utilisateur -----------------
-TICKER = st.text_input("Symbole boursier", value="BTC-USD")
-WINDOW = st.number_input("Fenêtre LSTM (jours)", value=50, min_value=5)
-capital_init = st.number_input("Capital initial", value=10000.0)
-risk_factor = st.slider("Risk factor", 1.0, 50.0, 10.0)
-max_fraction = st.slider("Fraction max par trade", 0.0, 1.0, 0.2)
+ticker = "BTC-USD"
+window = 50
 
-START = st.date_input("Date début données", value=pd.to_datetime("2025-01-01"))
+def load_historic():
+    with open("historic.json", "r") as f:
+        historic = json.load(f)
+    return historic
 
-# ----------------- 3. Load model & scalers -----------------
 @st.cache_resource
 def load_models():
     model = load_model("lstm_delta_model_corrected.keras")
@@ -30,106 +30,227 @@ def load_models():
         scaler_y = pickle.load(f)
     return model, scaler_X, scaler_y
 
-model, scaler_X, scaler_y = load_models()
-st.success("Modèle et scalers rechargés ✔")
+def update_historic(new_trade):
+    historic[str(day)] = new_trade
+    with open("historic.json", "w", encoding="utf-8") as f:
+        json.dump(historic, f, indent=4)
 
-# ----------------- 4. Download data -----------------
-@st.cache_data(ttl=3600)
-def download_data(ticker, start):
-    df = yf.download(ticker, start=start, auto_adjust=True)
-    df["Close_log"] = np.log(df["Close"])
-    return df
-
-data = download_data(TICKER, START)
-closes = data["Close_log"].values
-
-if len(closes) <= WINDOW:
-    st.warning("Pas assez de données pour cette fenêtre.")
-    st.stop()
-
-# ----------------- 5. Build sequences -----------------
-n_samples = len(closes) - WINDOW
-X_new = np.zeros((n_samples, WINDOW))
-y_true = np.zeros((n_samples,))
-for i in range(n_samples):
-    X_new[i] = closes[i:i+WINDOW]
-    y_true[i] = closes[i+WINDOW] - closes[i+WINDOW-1]
-
-X_new_scaled = scaler_X.transform(X_new).reshape(X_new.shape[0], X_new.shape[1], 1)
-
-# ----------------- 6. Predict -----------------
-y_pred_scaled = model.predict(X_new_scaled)
-y_pred = scaler_y.inverse_transform(y_pred_scaled).flatten()  # delta prédit
-true_delta = y_true
-
-# Reconstruction prix
-base_log_prices = closes[WINDOW-1:-1]
-pred_log_prices = base_log_prices + y_pred
-true_log_prices = base_log_prices + true_delta
-
-pred_price = np.exp(pred_log_prices)
-true_price = np.exp(true_log_prices)
-
-# ----------------- 7. Backtest pondéré -----------------
-capital = capital_init
-cash, position = capital, 0.0
-equity_curve = []
-trades = []
-wins, losses = 0, 0
-
-for i in range(len(pred_price)-1):
-    current_price = true_price[i]
-    predicted = pred_price[i]
+def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
     score = (predicted - current_price) / current_price
     weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
+    new_line = portfolio.copy()
 
-    # BUY
-    if score > 0 and cash > 0:
-        invest_amount = cash * weight
+    if score > 0 and new_line["cash"] > 0:
+        invest_amount = new_line["cash"] * weight
         qty = invest_amount / current_price
-        position += qty
-        cash -= invest_amount
-        trades.append(("BUY", current_price, qty))
+        new_line["position"] += qty
+        new_line["cash"] -= invest_amount
+        st.markdown("Achete !")
 
-    # SELL
-    elif score < 0 and position > 0:
-        sell_qty = position * weight
-        if sell_qty > 0:
-            sell_amount = sell_qty * current_price
-            buy_price = trades[-1][1] if trades else current_price
-            pnl = (current_price - buy_price) * sell_qty
-            cash += sell_amount
-            position -= sell_qty
-            trades.append(("SELL", current_price, sell_qty, pnl))
-            if pnl > 0: wins += 1
-            elif pnl < 0: losses += 1
+    elif score < 0 and new_line["position"] > 0:
+        sell_qty = new_line["position"] * weight
+        sell_amount = sell_qty * current_price
+        new_line["cash"] += sell_amount
+        new_line["position"] -= sell_qty
+        st.markdown("Vend !")
 
-    equity_curve.append(cash + position*current_price)
+    else:
+        st.markdown("rien ajd")
 
-final_value = cash + position*true_price[-1]
-total_trades = len([t for t in trades if t[0]=="SELL"])
-win_rate = wins / total_trades * 100 if total_trades > 0 else 0
-avg_gain = np.mean([t[3] for t in trades if t[0]=="SELL" and t[3]>0]) if wins > 0 else 0
-avg_loss = np.mean([t[3] for t in trades if t[0]=="SELL" and t[3]<0]) if losses > 0 else 0
-total_return_pct = (final_value - capital_init) / capital_init * 100
+    new_line["capital"] = new_line["cash"] + new_line["position"] * current_price
+    new_line["value"] = current_price
+    new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
 
-# ----------------- 8. Stats -----------------
-st.subheader("📊 Résultats Backtest")
-st.write(f"Capital final simulé : {final_value:.2f} USD")
-st.write(f"Nombre total de trades : {total_trades}")
-st.write(f"% de trades gagnants : {win_rate:.2f}%")
-st.write(f"Gain moyen par trade gagnant : {avg_gain:.2f}")
-st.write(f"Perte moyenne par trade perdant : {avg_loss:.2f}")
-st.write(f"Rendement total sur capital : {total_return_pct:.2f}%")
+    update_historic(new_line)
 
-# ----------------- 9. Graphiques -----------------
-st.subheader("📈 Evolution prix")
-fig_price = go.Figure()
-fig_price.add_trace(go.Scatter(y=true_price, name="Prix réel"))
-fig_price.add_trace(go.Scatter(y=pred_price, name="Prix prédit"))
-st.plotly_chart(fig_price, use_container_width=True)
+def predict_next_value(df):
+    closes = df["Close_log"].values
+    closes_scaled = scaler_X.transform([closes])
+    pred_scaled = model.predict(closes_scaled)
+    pred_delta = scaler_y.inverse_transform(pred_scaled).flatten()
+    pred_log = closes[-1] + pred_delta
+    pred_value = np.exp(pred_log)
 
-st.subheader("💰 Evolution capital")
-fig_equity = go.Figure()
-fig_equity.add_trace(go.Scatter(y=equity_curve, name="Equity curve"))
-st.plotly_chart(fig_equity, use_container_width=True)
+    if last_day != day:
+        trade(np.exp(closes[-1]), pred_value[0])
+
+# @st.cache_resource
+def verify_trad():
+    last_trade = historic.get(str(day), False)
+
+    if not last_trade:
+        yesterday = day - timedelta(days=window)
+        df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
+        df["Close_log"] = np.log(df["Close"])
+        predict_next_value(df)
+        st.rerun()
+
+day = datetime.today().date()
+historic = load_historic()
+first_day, first_portfolio = next(iter(historic.items()))
+last_day, portfolio = next(reversed(historic.items()))
+dates = list(historic.keys())
+
+capital = portfolio["capital"]
+capitals = [i["capital"] for i in historic.values()]
+model, scaler_X, scaler_y = load_models()
+verify_trad()
+
+env = Environment(loader=FileSystemLoader("."))
+template = env.get_template("template.html")
+countdown_tplt = env.get_template("countdown.html")
+
+with open("style.css", "r") as f:
+    css = f.read()
+
+html = template.render(capital=capital)
+st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+st.markdown(html, unsafe_allow_html=True)
+
+
+
+
+
+
+
+def compute_sma_baseline(df):
+    cash = first_portfolio["cash"]
+    position = first_portfolio["position"]
+    caps = []
+
+    df["SMA50"] = df["Close"].rolling(50).mean()
+    df["SMA200"] = df["Close"].rolling(200).mean()
+
+    for i in range(len(df)):
+        price = df["Close"].iloc[i][0]
+        sma50 = df["SMA50"].iloc[i]
+        sma200 = df["SMA200"].iloc[i]
+
+        if np.isnan(sma50) or np.isnan(sma200):
+            caps.append(cash + position * price)
+            continue
+
+        if sma50 > sma200 and cash > 0:
+            invest_amount = cash * 0.1
+            qty = invest_amount / price
+            position += qty
+            cash -= invest_amount
+
+        elif sma50 < sma200 and position > 0:
+            cash += position * price
+            position = 0
+
+        caps.append(cash + position * price)
+
+    return caps
+
+start_date = (datetime.strptime(list(historic.keys())[0], "%Y-%m-%d") - timedelta(days=250))
+df_hist = yf.download(ticker, start=start_date, end=str(day), auto_adjust=True)
+df_sim = df_hist
+df_sim["SMA50"] = df_sim["Close"].rolling(50).mean()
+df_sim["SMA200"] = df_sim["Close"].rolling(200).mean()
+sma_baseline_capitals = compute_sma_baseline(df_sim)
+
+active = (portfolio["capital"] - first_portfolio["capital"]) / first_portfolio["capital"] * 100
+passive = (portfolio["value"] - first_portfolio["value"]) / first_portfolio["value"] * 100
+baseline = (sma_baseline_capitals[-1] - first_portfolio["capital"]) / first_portfolio["capital"] * 100
+values = [active, passive, baseline]
+
+comparison_plot = go.Figure()
+
+comparison_plot.add_trace(go.Bar(
+    x=["Actif", "Passif", "Baseline"],
+    y=values,
+    text=[f"{v:.2f}%" for v in values],
+    textposition="outside",
+    marker_color=["green" if v >= 0 else "red" for v in values] 
+))
+
+comparison_plot.update_layout(
+    title="Comparaison passif/actif/baseline",
+    yaxis=dict(
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor="black"
+    ),
+    bargap=0.4
+)
+
+st.plotly_chart(comparison_plot, use_container_width=True)
+
+st.subheader("Historique du capital")
+passives = [i["passive"] for i in historic.values()]
+
+historic_plot = go.Figure()
+
+historic_plot.add_trace(go.Scatter(
+    x=dates, y=capitals, 
+    name="Capital",
+    line=dict(color="royalblue", width=2, dash="solid"),
+    mode="lines+markers",
+    marker=dict(size=6, symbol="circle", color="royalblue"),
+    fill="tozeroy",
+    fillcolor="rgba(65,105,225,0.2)",
+    showlegend=False
+))
+
+historic_plot.add_trace(go.Scatter(
+    x=dates, y=passives,
+    name="Capital passif",
+    line=dict(color="red", width=2, dash="solid"),
+    mode="lines+markers",
+    marker=dict(size=6, symbol="circle", color="red"),
+    showlegend=False
+))
+
+historic_plot.add_trace(go.Scatter(
+    x=dates, y=sma_baseline_capitals,
+    name="Capital baseline",
+    line=dict(color="green", width=2, dash="solid"),
+    mode="lines+markers",
+    marker=dict(size=6, symbol="circle", color="green"),
+    showlegend=False
+))
+
+
+st.plotly_chart(historic_plot, use_container_width=True)
+
+st.subheader("Historique des positions")
+btc_plot = go.Figure()
+
+btc = [i["position"] for i in historic.values()]
+
+btc_plot.add_trace(go.Scatter(
+    x=dates, y=btc, 
+    name="BTC",
+    line=dict(color="orange", width=3, dash="solid"),
+    mode="lines+markers",
+    fill="tozeroy",
+    marker=dict(size=6, symbol="circle", color="orange"),
+    showlegend=False
+))
+
+st.plotly_chart(btc_plot, use_container_width=True)
+
+
+
+def time_until_midnight_utc():
+    now_utc = datetime.now(timezone.utc)
+    midnight_utc = datetime(
+        now_utc.year, now_utc.month, now_utc.day, 0, 0, 0, tzinfo=timezone.utc
+    ) + timedelta(days=1)
+    return midnight_utc - now_utc
+
+placeholder = st.empty()
+
+while True:
+    delta = time_until_midnight_utc()
+    secs = int(delta.total_seconds())
+    hours, secs = divmod(secs, 3600)
+    mins, secs = divmod(secs, 60)
+    time_str = f"{hours:02d}:{mins:02d}:{secs:02d}"
+
+    countdown = countdown_tplt.render(time=time_str)
+    placeholder.markdown(countdown, unsafe_allow_html=True)
+
+    time.sleep(1)

@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=SUSE+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+.timer {
+	display: flex;
+}
+
+.btc {
+	width: 80px;
+	height: 80px;
+	border-radius: 50%;
+	background: orange;
+	font-size: 50px;
+	font-weight: bold;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	animation: rotateBTC 5s infinite;
+	box-sizing: border-box;
+	min-width: 80px;
+	min-height: 80px;
+	max-width: 80px;
+	max-height: 80px;
+}
+
+.time {
+	margin-left: 20px;
+	font-family: "SUSE Mono", sans-serif;;
+	font-size: 50px;
+}
+
+@keyframes rotateBTC {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}

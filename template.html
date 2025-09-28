@@ -1,0 +1,6 @@
+{% set capital_str = "$ " ~ "%.2f"|format(capital) %}
+<h1 style="display: flex; justify-content: space-between; font-family: monospace;">
+{% for i in capital_str %}
+<span>{{ i }}</span>
+{% endfor %}
+</h1>
