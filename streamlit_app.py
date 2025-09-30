@@ -7,19 +7,53 @@ import streamlit as st
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 from jinja2 import Environment, FileSystemLoader
+from supabase import create_client
 import time
 import json
 import os
 
 st.set_page_config("Trading Dashboard", layout="wide")
 
+def is_cloud():
+    return os.getenv("STREAMLIT_RUNTIME") is not None
+
+if is_cloud():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+else:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    url = os.getenv("url")
+    key = os.getenv("key")
+
+sb = create_client(url, key)
+bucket = "data"
+
+supabase = create_client(url, key)
+
+def load_historic():
+    try:
+        res = sb.storage.from_(bucket).download("historic.json")
+        return json.loads(res.decode())
+    except Exception:
+        return {}
+
+def save_historic(historic):
+    data = json.dumps(historic).encode("utf-8")
+    sb.storage.from_(bucket).update(
+        "historic.json",
+        data,
+        {"content-type": "application/json"}
+    )
+
 ticker = "BTC-USD"
 window = 50
 
-def load_historic():
-    with open("historic.json", "r") as f:
-        historic = json.load(f)
-    return historic
+# def load_historic():
+#   with open("historic.json", "r") as f:
+#       historic = json.load(f)
+#   return historic
 
 @st.cache_resource
 def load_models():
@@ -32,8 +66,9 @@ def load_models():
 
 def update_historic(new_trade):
     historic[str(day)] = new_trade
-    with open("historic.json", "w", encoding="utf-8") as f:
-        json.dump(historic, f, indent=4)
+    # with open("historic.json", "w", encoding="utf-8") as f:
+    #   json.dump(historic, f, indent=4)
+    save_historic(historic)
 
 def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
     score = (predicted - current_price) / current_price
@@ -84,6 +119,7 @@ def verify_trad():
         df["Close_log"] = np.log(df["Close"])
         predict_next_value(df)
         st.rerun()
+
 
 day = datetime.today().date()
 historic = load_historic()
