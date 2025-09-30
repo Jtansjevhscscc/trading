@@ -142,7 +142,7 @@ def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
     # new_line["value"] = current_price
     # new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
 
-    # update_historic(new_line)
+    update_historic(new_line)
 
 def predict_next_value(df):
     closes = df["Close_log"].values
