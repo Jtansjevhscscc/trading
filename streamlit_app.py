@@ -51,9 +51,9 @@ ticker = "BTC-USD"
 window = 50
 
 # def load_historic():
-#   with open("historic.json", "r") as f:
-#       historic = json.load(f)
-#   return historic
+    # with open("historic.json", "r") as f:
+        # historic = json.load(f)
+    # return historic
 
 @st.cache_resource
 def load_models():
@@ -70,33 +70,79 @@ def update_historic(new_trade):
     #   json.dump(historic, f, indent=4)
     save_historic(historic)
 
-def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
+
+
+
+
+def simulate_actions(portfolio, current_price, predicted, risk_factor=10, max_fraction=0.2, n_samples=20):
     score = (predicted - current_price) / current_price
-    weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
-    new_line = portfolio.copy()
+    weights = np.linspace(0, max_fraction, n_samples)
 
-    if score > 0 and new_line["cash"] > 0:
-        invest_amount = new_line["cash"] * weight
-        qty = invest_amount / current_price
-        new_line["position"] += qty
-        new_line["cash"] -= invest_amount
-        st.markdown("Achete !")
+    results = []
 
-    elif score < 0 and new_line["position"] > 0:
-        sell_qty = new_line["position"] * weight
-        sell_amount = sell_qty * current_price
-        new_line["cash"] += sell_amount
-        new_line["position"] -= sell_qty
-        st.markdown("Vend !")
+    for w in weights:
+        new_line = portfolio.copy()
 
-    else:
-        st.markdown("rien ajd")
+        if score > 0 and new_line["cash"] > 0:
+            invest_amount = new_line["cash"] * w
+            qty = invest_amount / current_price
+            new_line["position"] += qty
+            new_line["cash"] -= invest_amount
+            action = f"buy {w:.2f}"
 
-    new_line["capital"] = new_line["cash"] + new_line["position"] * current_price
-    new_line["value"] = current_price
-    new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
+        elif score < 0 and new_line["position"] > 0:
+            sell_qty = new_line["position"] * w
+            sell_amount = sell_qty * current_price
+            new_line["cash"] += sell_amount
+            new_line["position"] -= sell_qty
+            action = f"sell {w:.2f}"
 
-    update_historic(new_line)
+        else:
+            action = f"skip {w:.2f}"
+
+        new_line["capital"] = new_line["cash"] + new_line["position"] * current_price
+        new_line["action"] = action
+        results.append(new_line)
+
+    idle_line = portfolio.copy()
+    idle_line["capital"] = portfolio["cash"] + portfolio["position"] * current_price
+    idle_line["action"] = "idle"
+    results.append(idle_line)
+
+    return results
+
+
+def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
+    results = simulate_actions(portfolio, current_price, predicted)
+
+    new_line = max(results, key=lambda x: x["capital"])
+
+    # score = (predicted - current_price) / current_price
+    # weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
+    # new_line = portfolio.copy()
+
+    # if score > 0 and new_line["cash"] > 0:
+    #   invest_amount = new_line["cash"] * weight
+    #   qty = invest_amount / current_price
+    #   new_line["position"] += qty
+    #   new_line["cash"] -= invest_amount
+    #   st.markdown("Achete !")
+
+    # elif score < 0 and new_line["position"] > 0:
+    #   sell_qty = new_line["position"] * weight
+    #   sell_amount = sell_qty * current_price
+    #   new_line["cash"] += sell_amount
+    #   new_line["position"] -= sell_qty
+    #   st.markdown("Vend !")
+
+    # else:
+    #   st.markdown("rien ajd")
+
+    # new_line["capital"] = new_line["cash"] + new_line["position"] * current_price
+    # new_line["value"] = current_price
+    # new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
+
+    # update_historic(new_line)
 
 def predict_next_value(df):
     closes = df["Close_log"].values
