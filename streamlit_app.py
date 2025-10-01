@@ -164,6 +164,7 @@ def verify_trad():
 		start = yesterday - timedelta(days=window-1)
 		
 		df = yf.download("BTC-USD", start=start, end=day+timedelta(days=1), auto_adjust=True)
+		df = df[:50]
 		print(day)
 		print(yesterday)
 		print(start)
@@ -348,6 +349,7 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
 
