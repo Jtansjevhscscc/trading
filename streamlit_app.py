@@ -12,6 +12,21 @@ import time
 import json
 import os
 
+import streamlit as st
+from datetime import datetime
+import pytz
+
+# Heure UTC
+st.write("UTC:", datetime.utcnow())
+
+# Heure locale du container
+st.write("Local time (server):", datetime.now())
+
+# Exemple : convertir en fuseau Paris
+paris = pytz.timezone("Europe/Paris")
+st.write("Paris time:", datetime.now(paris))
+
+
 st.set_page_config("Trading Dashboard", layout="wide")
 
 def is_cloud():
@@ -336,3 +351,4 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
