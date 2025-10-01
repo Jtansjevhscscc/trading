@@ -161,7 +161,7 @@ def verify_trad():
 
 	if not last_trade:
 		yesterday = day - timedelta(days=1)
-		start = yesterday - timedelta(days=window-1)
+		start = yesterday - timedelta(days=window)
 		
 		df = yf.download("BTC-USD", start=start, end=day, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
@@ -342,6 +342,7 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
 
