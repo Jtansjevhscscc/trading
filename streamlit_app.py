@@ -160,7 +160,7 @@ def verify_trad():
 	last_trade = historic.get(str(day), False)
 
 	if not last_trade:
-		yesterday = day - timedelta(days=1)
+		yesterday = day - timedelta(days=window+1)
 		df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
 		predict_next_value(df)
@@ -340,5 +340,6 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
