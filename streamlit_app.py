@@ -174,7 +174,7 @@ last_day, portfolio = next(reversed(historic.items()))
 dates = list(historic.keys())
 
 st.write(f"Aujourd'hui : {day}")
-st.write(f"Hier : {day - timedelta(days=window)}")
+st.write(f"Hier : {day - timedelta(days=1)}")
 st.write(f"-window_size : {day - timedelta(days=window)}")
 
 capital = portfolio["capital"]
@@ -340,4 +340,5 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
