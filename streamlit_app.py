@@ -157,6 +157,9 @@ def predict_next_value(df):
 
 # @st.cache_resource
 def verify_trad():
+	st.write(str(day))
+	st.write(historic.keys())
+	
 	last_trade = historic.get(str(day), False)
 
 	if not last_trade:
@@ -182,9 +185,9 @@ first_day, first_portfolio = next(iter(historic.items()))
 last_day, portfolio = next(reversed(historic.items()))
 dates = list(historic.keys())
 
-st.write(f"Aujourd'hui : {day}")
-st.write(f"Hier : {day - timedelta(days=1)}")
-st.write(f"-window_size : {day - timedelta(days=window)}")
+# st.write(f"Aujourd'hui : {day}")
+# st.write(f"Hier : {day - timedelta(days=1)}")
+# st.write(f"-window_size : {day - timedelta(days=window)}")
 
 capital = portfolio["capital"]
 capitals = [i["capital"] for i in historic.values()]
@@ -349,6 +352,7 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
 
