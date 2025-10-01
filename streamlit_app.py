@@ -168,7 +168,8 @@ def verify_trad():
 		print(yesterday)
 		print(start)
 		print(len(df))
-		
+		st.write(df)
+	
 		df["Close_log"] = np.log(df["Close"])
 		predict_next_value(df)
 		st.rerun()
@@ -347,6 +348,7 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
 
