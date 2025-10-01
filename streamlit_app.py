@@ -160,7 +160,7 @@ def verify_trad():
 	last_trade = historic.get(str(day), False)
 
 	if not last_trade:
-		yesterday = day - timedelta(days=window)
+		yesterday = day - timedelta(days=1)
 		df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
 		predict_next_value(df)
@@ -172,6 +172,10 @@ historic = load_historic()
 first_day, first_portfolio = next(iter(historic.items()))
 last_day, portfolio = next(reversed(historic.items()))
 dates = list(historic.keys())
+
+st.write(f"Aujourd'hui : {day}")
+st.write(f"Hier : {day - timedelta(days=window)}")
+st.write(f"-window_size : {day - timedelta(days=window)}")
 
 capital = portfolio["capital"]
 capitals = [i["capital"] for i in historic.values()]
@@ -336,3 +340,4 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
