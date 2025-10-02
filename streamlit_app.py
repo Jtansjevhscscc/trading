@@ -116,7 +116,6 @@ def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
 	results = simulate_actions(portfolio, current_price, predicted)
 
 	new_line = max(results, key=lambda x: x["capital"])
-	new_line["value"] = current_price 
 
 	# score = (predicted - current_price) / current_price
 	# weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
@@ -140,8 +139,8 @@ def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
 	#   st.markdown("rien ajd")
 
 	# new_line["capital"] = new_line["cash"] + new_line["position"] * current_price
-	# new_line["value"] = current_price
-	# new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
+	new_line["value"] = current_price
+	new_line["passive"] = new_line["init_position"] * current_price + new_line["cash"]
 
 	update_historic(new_line)
 
