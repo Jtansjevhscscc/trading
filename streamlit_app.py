@@ -116,7 +116,7 @@ def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
 	results = simulate_actions(portfolio, current_price, predicted)
 
 	new_line = max(results, key=lambda x: x["capital"])
-	portfolio["value"] = current_price 
+	new_line["value"] = current_price 
 
 	# score = (predicted - current_price) / current_price
 	# weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
