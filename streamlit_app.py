@@ -116,6 +116,7 @@ def trade(current_price, predicted, risk_factor=10, max_fraction=0.2):
 	results = simulate_actions(portfolio, current_price, predicted)
 
 	new_line = max(results, key=lambda x: x["capital"])
+	portfolio["value"] = current_price 
 
 	# score = (predicted - current_price) / current_price
 	# weight = np.clip(abs(score) * risk_factor, 0, max_fraction)
@@ -157,23 +158,11 @@ def predict_next_value(df):
 
 # @st.cache_resource
 def verify_trad():
-	st.write(str(day))
-	st.write(historic.keys())
-	
 	last_trade = historic.get(str(day), False)
 
 	if not last_trade:
-		yesterday = day - timedelta(days=1)
-		start = yesterday - timedelta(days=window-1)
-		
-		df = yf.download("BTC-USD", start=start, end=day+timedelta(days=1), auto_adjust=True)
-		df = df[:50]
-		print(day)
-		print(yesterday)
-		print(start)
-		print(len(df))
-		st.write(df)
-	
+		yesterday = day - timedelta(days=window)
+		df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
 		predict_next_value(df)
 		st.rerun()
@@ -184,10 +173,6 @@ historic = load_historic()
 first_day, first_portfolio = next(iter(historic.items()))
 last_day, portfolio = next(reversed(historic.items()))
 dates = list(historic.keys())
-
-# st.write(f"Aujourd'hui : {day}")
-# st.write(f"Hier : {day - timedelta(days=1)}")
-# st.write(f"-window_size : {day - timedelta(days=window)}")
 
 capital = portfolio["capital"]
 capitals = [i["capital"] for i in historic.values()]
@@ -352,15 +337,3 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
-
-
-
-
-
-
-
-
-
-
-
-
