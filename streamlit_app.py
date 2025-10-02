@@ -234,7 +234,8 @@ df_sim["SMA200"] = df_sim["Close"].rolling(200).mean()
 sma_baseline_capitals = compute_sma_baseline(df_sim)
 
 active = (portfolio["capital"] - first_portfolio["capital"]) / first_portfolio["capital"] * 100
-passive = (portfolio["value"] - first_portfolio["value"]) / first_portfolio["value"] * 100
+passive_capital = first_portfolio["cash"] + first_portfolio["init_position"] * portfolio["value"]
+passive = (passive_capital - first_portfolio["capital"]) / first_portfolio["capital"] * 100
 baseline = (sma_baseline_capitals[-1] - first_portfolio["capital"]) / first_portfolio["capital"] * 100
 values = [active, passive, baseline]
 
@@ -262,6 +263,46 @@ st.plotly_chart(comparison_plot, use_container_width=True)
 
 st.subheader("Historique du capital")
 passives = [i["passive"] for i in historic.values()]
+
+
+normalized_plot = go.Figure()
+
+capitals = np.array(capitals)
+c = (capitals - capitals.min()) / (capitals.max() - capitals.min())
+p = (passives - capitals.min()) / (capitals.max() - capitals.min())
+b = (sma_baseline_capitals - capitals.min()) / (capitals.max() - capitals.min())
+
+normalized_plot.add_trace(go.Scatter(
+	x=dates, y=c, 
+	name="Capital",
+	line=dict(color="royalblue", width=2, dash="solid"),
+	mode="lines+markers",
+	marker=dict(size=6, symbol="circle", color="royalblue"),
+	fill="tozeroy",
+	fillcolor="rgba(65,105,225,0.2)",
+	showlegend=False
+))
+
+normalized_plot.add_trace(go.Scatter(
+	x=dates, y=p,
+	name="Capital passif",
+	line=dict(color="red", width=2, dash="solid"),
+	mode="lines+markers",
+	marker=dict(size=6, symbol="circle", color="red"),
+	showlegend=False
+))
+
+normalized_plot.add_trace(go.Scatter(
+	x=dates, y=b,
+	name="Capital baseline",
+	line=dict(color="green", width=2, dash="solid"),
+	mode="lines+markers",
+	marker=dict(size=6, symbol="circle", color="green"),
+	showlegend=False
+))
+
+st.plotly_chart(normalized_plot, use_container_width=True)
+
 
 historic_plot = go.Figure()
 
