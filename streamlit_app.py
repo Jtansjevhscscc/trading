@@ -163,6 +163,7 @@ def verify_trad():
 		yesterday = day - timedelta(days=window)
 		df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
+		st.write(df)
 		predict_next_value(df)
 		st.rerun()
 
@@ -377,3 +378,4 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
