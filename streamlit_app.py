@@ -164,16 +164,9 @@ def verify_trad():
 
 		df = yf.download("BTC-USD", start=yesterday, auto_adjust=True)
 		df["Close_log"] = np.log(df["Close"])
-		df = df[:50]
-		st.write(df)
-		st.write(len(df))
-		
-		df = yf.download("BTC-USD", start=yesterday, end=day, auto_adjust=True)
-		df["Close_log"] = np.log(df["Close"])
-		st.write(df)
-		predict_next_value(df)
-		st.rerun()
 
+		predict_next_value(df[:50])
+		st.rerun()
 
 day = datetime.now(timezone.utc).date()
 historic = load_historic()
@@ -385,6 +378,7 @@ while True:
 	placeholder.markdown(countdown, unsafe_allow_html=True)
 
 	time.sleep(1)
+
 
 
 
